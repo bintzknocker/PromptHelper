@@ -8,6 +8,9 @@ if (!apiKey) {
   process.exit(1);
 }
 
+const model = process.env.ANTHROPIC_MODEL || 'claude-sonnet-5';
+const maxTokens = Number(process.env.ANTHROPIC_MAX_TOKENS) || 8192;
+
 const anthropic = new Anthropic({ apiKey });
 const app = express();
 
@@ -21,10 +24,14 @@ app.post('/api/complete', async (req, res) => {
 
   try {
     const message = await anthropic.messages.create({
-      model: 'claude-sonnet-5',
-      max_tokens: 2048,
+      model,
+      max_tokens: maxTokens,
       messages: [{ role: 'user', content: prompt }],
     });
+
+    if (message.stop_reason === 'max_tokens') {
+      return res.status(502).json({ error: 'AI response was truncated (hit max_tokens)' });
+    }
 
     const completion = message.content
       .filter((block) => block.type === 'text')
